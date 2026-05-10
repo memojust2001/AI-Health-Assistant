@@ -8,29 +8,16 @@ st.set_page_config(page_title="AI Medical Hub | PhD Project", layout="wide", ini
 st.markdown("""
     <style>
     .main { background-color: #f8fafb; }
-    .marquee { width: 100%; line-height: 45px; background-color: #1a5276; color: white; white-space: nowrap; overflow: hidden; position: relative; border-bottom: 3px solid #d4ac0d; }
+    .marquee { width: 100%; line-height: 45px; background-color: #1a5276; color: white; white-space: nowrap; overflow: hidden; border-bottom: 3px solid #d4ac0d; }
     .marquee p { display: inline-block; padding-left: 100%; animation: marquee 25s linear infinite; font-size: 17px; font-weight: bold; }
     @keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
-    .stButton>button { width: 100%; border-radius: 8px; height: 3em; background-color: #2874a6; color: white; font-weight: bold; }
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { background-color: #e0f2f1; border-radius: 5px; padding: 10px; font-weight: bold; }
     .card { background-color: white; padding: 20px; border-radius: 12px; border-right: 8px solid #1a5276; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; direction: rtl; text-align: right; }
+    .price-tag { background-color: #fef5e7; color: #d35400; padding: 5px 15px; border-radius: 5px; font-weight: bold; float: left; }
     </style>
-    <div class="marquee"><p>🌐 منصة المساعد الطبي الذكي - نسخة الدكتوراه المحدثة 2026 | فحص الأعراض مقسم حسب الأجهزة | موسوعة الأدوية والتحاليل متوفرة الآن 🩺</p></div>
+    <div class="marquee"><p>🌐 منصة المساعد الطبي الذكي - نسخة الدكتوراه 2026 | موسوعة الأدوية والتحاليل المحدثة طبقاً للدليل الطبي | فحص الأعراض الذكي متاح الآن 🩺</p></div>
     """, unsafe_allow_html=True)
 
-# --- 3. إدارة اللغة ---
-if 'lang' not in st.session_state: st.session_state.lang = 'ar'
-def switch_l(): st.session_state.lang = 'en' if st.session_state.lang == 'ar' else 'ar'
-
-# --- 4. الهيدر العلوي ---
-col_h1, col_h2 = st.columns([0.8, 0.2])
-with col_h1:
-    st.title("🏥 نظام التحليل الطبي والدوائي المتكامل")
-with col_h2:
-    st.button("🌐 Switch Language", on_click=switch_l)
-
-# --- 5. الشريط الجانبي (البيانات + المساعد الذكي) ---
+# --- 3. الشريط الجانبي (بيانات المريض كاملة) ---
 with st.sidebar:
     st.header("👤 ملف المريض")
     st.text_input("الاسم بالكامل")
@@ -45,78 +32,70 @@ with st.sidebar:
     
     st.divider()
     st.header("🤖 المساعد الذكي")
-    st.info("تحدث مع AI Assistant")
     ai_q = st.text_area("اسألني أي سؤال طبي...")
     if st.button("إرسال للمساعد"):
-        st.success("💬 جاري تحليل سؤالك برمجياً...")
+        st.info("💬 جاري التحليل برمجياً...")
 
-# --- 6. فحص الأعراض (تبويبات أجهزة الجسم) ---
-st.header("📋 محرك فحص الأعراض الشامل")
-tabs = st.tabs(["❤️ الدوري", "🫁 التنفسي", "🤢 الهضمي", "🧠 العصبي", "🦴 الحركي"])
+# --- 4. الهيدر وفحص الأعراض ---
+st.title("🏥 نظام التحليل الطبي والدوائي المتكامل")
+tabs = st.tabs(["❤️ الجهاز الدوري", "🫁 الجهاز التنفسي", "🤢 الجهاز الهضمي", "🧠 الجهاز العصبي"])
 
 with tabs[0]:
     st.subheader("أعراض الجهاز الدوري")
-    cv_s = st.multiselect("ماذا تشعر؟", ["نهجان سريع", "ألم في الصدر", "ضربات قلب غير منتظمة", "تورم القدمين"])
-    st.button("التالي ➡️", key="c_next")
+    cv_s = st.multiselect("اختر الأعراض:", ["نهجان", "ألم صدر", "ضربات سريعة", "تورم أطراف"])
+    if st.button("تشخيص الحالة 🔍", key="diag_cv"):
+        st.warning("التشخيص المبدئي: اشتباه إجهاد قلبي. | التحاليل: ECG | الوقاية: راحة تامة.")
 
-with tabs[1]:
-    st.subheader("أعراض الجهاز التنفسي")
-    resp_s = st.multiselect("ماذا تشعر؟", ["كحة جافة", "بلغم"، "ضيق تنفس", "تزييق صدر"])
-    st.button("التالي ➡️", key="r_next")
-
-# زر استخراج التشخيص (المنطق المدمج)
-if st.button("🔍 تحليل الحالة واستخراج التوصيات"):
-    st.divider()
-    st.subheader("🩺 نتائج التحليل السريري المبدئي")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.warning("**التشخيص المتوقع:**")
-        st.write("1. اشتباه في إجهاد عضلة القلب")
-        st.info("**طرق الوقاية:** الراحة، تقليل الصوديوم، متابعة الضغط.")
-    with c2:
-        st.success("**الأدوية والتحاليل:**")
-        st.write("- أدوية مقترحة: Aspirin 81mg")
-        st.write("- تحاليل مطلوبة: ECG / CBC / Lipid Profile")
-
-# --- 7. موسوعة الأدوية (نظام DwaPrices المطور) ---
+# --- 5. موسوعة الأدوية الشاملة (طبقاً للصورة المرفقة) ---
 st.divider()
-st.header("💊 دليل الأدوية والبدائل")
-drug_search = st.text_input("🔍 ابحث عن دواء (الاسم أو المادة الفعالة):")
+st.header("💊 محرك بحث الأدوية (Drug Index)")
 
-# قاعدة بيانات مصغرة (أمثلة)
-meds = [
-    {"n": "Augmentin", "a": "Amoxicillin", "u": "مضاد حيوي", "alt": "Hibiotic, Curam"},
-    {"n": "Panadol", "a": "Paracetamol", "u": "مسكن"، "alt": "Adol, Abimol"}
+# قاعدة بيانات تجريبية (موسعة)
+med_db = [
+    {"name": "Augmentin 1g", "active": "Amoxicillin + Clavulanic Acid", "company": "GSK", "price": "100 EGP", "use": "Antibiotic"},
+    {"name": "Panadol Advance", "active": "Paracetamol", "company": "Glaxo", "price": "30 EGP", "use": "Analgesic"},
+    {"name": "Concor 5mg", "active": "Bisoprolol", "company": "Merck", "price": "50 EGP", "use": "Hypertension"},
+    {"name": "Cataflam 50mg", "active": "Diclofenac Potassium", "company": "Novartis", "price": "65 EGP", "use": "Anti-inflammatory"},
+    {"name": "Controloc 40mg", "active": "Pantoprazole", "company": "Takeda", "price": "95 EGP", "use": "Gastritis"}
 ]
+df_meds = pd.DataFrame(med_db)
 
-if drug_search:
-    results = [m for m in meds if drug_search.lower() in m['n'].lower() or drug_search.lower() in m['a'].lower()]
-    for r in results:
-        st.markdown(f"""
-        <div class="card">
-            <h3 style="color: #1a5276;">{r['n']}</h3>
-            <p><b>المادة الفعالة:</b> {r['a']} | <b>الاستخدام:</b> {r['u']}</p>
-            <p style="color: #d35400;"><b>🔄 البدائل المتاحة:</b> {r['alt']}</p>
-        </div>
-        """, unsafe_allow_html=True)
+drug_input = st.text_input("🔍 ابحث عن الدواء (الاسم، المادة، الشركة، أو الاستخدام):")
 
-# --- 8. وحدة التحاليل الطبية (نظام علمي) ---
+if drug_input:
+    results = df_meds[df_meds.apply(lambda row: drug_input.lower() in row.astype(str).str.lower().values, axis=1)]
+    if not results.empty:
+        for _, row in results.iterrows():
+            st.markdown(f"""
+            <div class="card">
+                <span class="price-tag">{row['price']}</span>
+                <h2 style="color: #1a5276; margin-top: 0;">{row['name']}</h2>
+                <p style="margin: 5px 0;"><b>🧪 المادة الفعالة:</b> {row['active']}</p>
+                <p style="margin: 5px 0;"><b>🏢 الشركة:</b> {row['company']}</p>
+                <p style="margin: 5px 0;"><b>📝 الاستخدام:</b> {row['use']}</p>
+                <hr>
+                <p style="color: #008080; font-size: 0.9em;"><b>🔄 البدائل المتاحة:</b> تظهر هنا الأدوية التي تحتوي على {row['active']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.error("لم يتم العثور على نتائج.")
+
+# --- 6. قسم التحاليل الطبية (بدون أسعار - علمي) ---
 st.divider()
-st.header("🔬 وحدة التحاليل المختبرية")
-lab_search = st.text_input("🔍 ابحث عن تحليل معين:")
+st.header("🔬 المختبر الطبي الذكي")
+lab_input = st.text_input("🔍 ابحث عن التحليل والتعليمات:")
 
 labs = [
     {"n": "صورة دم (CBC)", "f": "خلايا الدم والأنيميا", "t": "لا يشترط الصيام"},
-    {"n": "سكر تراكمي (HbA1c)", "f": "معدل السكر في 3 شهور", "t": "لا يشترط الصيام"}
+    {"n": "سكر تراكمي (HbA1c)", "f": "معدل السكر في 3 شهور", "t": "لا يشترط الصيام"},
+    {"n": "وظائف كبد (ALT/AST)", "f": "سلامة إنزيمات الكبد", "t": "يفضل الصيام 6 ساعات"}
 ]
 
-if lab_search:
-    res_l = [l for l in labs if lab_search.lower() in l['n'].lower()]
+if lab_input:
+    res_l = [l for l in labs if lab_input.lower() in l['n'].lower()]
     for l in res_l:
         st.markdown(f"""
         <div class="card" style="border-right-color: #008080;">
             <h3 style="color: #004d40;">{l['n']}</h3>
             <p><b>🎯 الهدف:</b> {l['f']}</p>
-            <p style="color: #00695c;"><b>⚠️ التعليمات:</b> {l['t']}</p>
-        </div>
-        """, unsafe_allow_html=True)
+            <div style="background-color:
