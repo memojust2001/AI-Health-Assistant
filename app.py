@@ -1,101 +1,119 @@
 import streamlit as st
-import pandas as pd
 
-# --- 1. إعدادات الصفحة الفنية ---
-st.set_page_config(page_title="AI Medical Hub | PhD Project", layout="wide", initial_sidebar_state="expanded")
+# --- إعدادات الصفحة ---
+st.set_page_config(page_title="Egypt Health Pro", layout="wide")
 
-# --- 2. محرك التنسيق المطور (Professional CSS) ---
+# --- محرك التنسيق (CSS) لضبط الاتجاه والعناصر ---
 st.markdown("""
     <style>
-    .main { background-color: #f8fafb; }
-    .marquee { width: 100%; line-height: 45px; background-color: #1a5276; color: white; white-space: nowrap; overflow: hidden; border-bottom: 3px solid #d4ac0d; }
-    .marquee p { display: inline-block; padding-left: 100%; animation: marquee 25s linear infinite; font-size: 17px; font-weight: bold; }
-    @keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
-    .card { background-color: white; padding: 20px; border-radius: 12px; border-right: 8px solid #1a5276; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; direction: rtl; text-align: right; }
-    .price-tag { background-color: #fef5e7; color: #d35400; padding: 5px 15px; border-radius: 5px; font-weight: bold; float: left; }
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; }
+    .stButton>button { width: 100%; border-radius: 20px; font-weight: bold; transition: 0.3s; }
+    .navbar { display: flex; justify-content: space-around; background: #1a5276; padding: 15px; border-radius: 10px; margin-bottom: 25px; }
+    .nav-item { color: white; cursor: pointer; text-decoration: none; font-weight: bold; }
+    .main-card { background: white; padding: 25px; border-radius: 15px; border-right: 5px solid #d4ac0d; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .marquee { background: #2c3e50; color: #f1c40f; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
     </style>
-    <div class="marquee"><p>🌐 منصة المساعد الطبي الذكي - نسخة الدكتوراه 2026 | موسوعة الأدوية والتحاليل المحدثة طبقاً للدليل الطبي | فحص الأعراض الذكي متاح الآن 🩺</p></div>
+    <div class="marquee"><marquee direction="right">مرحباً بك في منصة مصر الطبية الذكية | تحديثات قاعدة بيانات الأدوية من مراجع روشتاتولوجي وامتيازولوجي 2026 | المساعد الذكي متاح الآن </marquee></div>
     """, unsafe_allow_html=True)
 
-# --- 3. الشريط الجانبي (بيانات المريض كاملة) ---
-with st.sidebar:
-    st.header("👤 ملف المريض")
-    st.text_input("الاسم بالكامل")
-    st.number_input("العمر", 1, 110)
-    st.selectbox("فصيلة الدم", ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"])
-    
+# --- إدارة الحالة (Session State) ---
+if 'page' not in st.session_state: st.session_state.page = 'login'
+if 'lang' not in st.session_state: st.session_state.lang = 'ar'
+
+# دالة التنقل
+def go_to(page_name): st.session_state.page = page_name
+
+# --- 1. صفحة تسجيل الدخول ---
+if st.session_state.page == 'login':
+    st.markdown("<h2 style='text-align:center;'>🔐 تسجيل دخول المنصة</h2>", unsafe_allow_html=True)
+    with st.container():
+        col1, col2, col3 = st.columns([1,2,1])
+        with col2:
+            st.text_input("رقم التليفون أو الإيميل")
+            st.text_input("كلمة المرور", type="password")
+            if st.button("دخول"): go_to('home')
+            st.button("إنشاء حساب جديد")
+
+# --- الهيدر العام (يظهر بعد الدخول) ---
+if st.session_state.page != 'login':
+    # أزرار التنقل العلوية
+    cols = st.columns([1,1,1,1,1,1])
+    with cols[0]: st.button("🏠 الرئيسية", on_click=lambda: go_to('home'))
+    with cols[1]: st.button("📋 فحص الأعراض", on_click=lambda: go_to('symptoms'))
+    with cols[2]: st.button("💊 دليل الأدوية", on_click=lambda: go_to('drugs'))
+    with cols[3]: st.button("🔬 المختبر", on_click=lambda: go_to('lab'))
+    with cols[4]: st.button("🤖 المساعد الذكي", on_click=lambda: go_to('ai'))
+    with cols[5]: st.button("🌐 English/عربي")
+
     st.divider()
-    st.subheader("📊 العلامات الحيوية")
-    st.text_input("ضغط الدم (Systolic/Diastolic)")
-    st.text_input("مستوى السكر (mg/dL)")
-    st.text_input("درجة الحرارة (C°)")
-    
-    st.divider()
-    st.header("🤖 المساعد الذكي")
-    ai_q = st.text_area("اسألني أي سؤال طبي...")
-    if st.button("إرسال للمساعد"):
-        st.info("💬 جاري التحليل برمجياً...")
 
-# --- 4. الهيدر وفحص الأعراض ---
-st.title("🏥 نظام التحليل الطبي والدوائي المتكامل")
-tabs = st.tabs(["❤️ الجهاز الدوري", "🫁 الجهاز التنفسي", "🤢 الجهاز الهضمي", "🧠 الجهاز العصبي"])
+    # --- 2. الصفحة الرئيسية ---
+    if st.session_state.page == 'home':
+        st.markdown("<div class='main-card'><h3>👋 مرحباً بك في لوحة التحكم الطبية</h3><p>اختر أحد الأقسام من الأعلى للبدء. الموقع مصمم لخدمة المرضى والأطباء بناءً على بروتوكولات وزارة الصحة المصرية.</p></div>", unsafe_allow_html=True)
 
-with tabs[0]:
-    st.subheader("أعراض الجهاز الدوري")
-    cv_s = st.multiselect("اختر الأعراض:", ["نهجان", "ألم صدر", "ضربات سريعة", "تورم أطراف"])
-    if st.button("تشخيص الحالة 🔍", key="diag_cv"):
-        st.warning("التشخيص المبدئي: اشتباه إجهاد قلبي. | التحاليل: ECG | الوقاية: راحة تامة.")
+    # --- 3. صفحة فحص الأعراض (مرصوصة للأجهزة) ---
+    elif st.session_state.page == 'symptoms':
+        st.header("📋 فحص الأعراض - أجهزة الجسم")
+        
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            st.subheader("❤️ الجهاز الدوري")
+            st.checkbox("نهجان شديد")
+            st.checkbox("ألم في منتصف الصدر")
+            st.checkbox("خفقان (ضربات سريعة)")
+            st.checkbox("تورم في القدمين")
+            
+        with col_s2:
+            st.subheader("🫁 الجهاز التنفسي")
+            st.checkbox("كحة ناشفة")
+            st.checkbox("كحة ببلغم")
+            st.checkbox("تزييق في الصدر")
+            st.checkbox("نهجان مع الكلام")
+        
+        st.divider()
+        if st.button("🔍 عرض التشخيص والتحاليل المطلوبة"):
+            st.info("بناءً على مراجع (امتيازولوجي): الحالة تستدعي عمل رسم قلب وأشعة صدر.")
 
-# --- 5. موسوعة الأدوية الشاملة (طبقاً للصورة المرفقة) ---
-st.divider()
-st.header("💊 محرك بحث الأدوية (Drug Index)")
+    # --- 4. صفحة الأدوية (البحث الشامل) ---
+    elif st.session_state.page == 'drugs':
+        st.header("💊 محرك بحث الأدوية (Drug Eye Style)")
+        search = st.text_input("اكتب اسم الدواء (مثلاً: Adol, Aspirin, Augmentin)...")
+        
+        alphabet = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        st.write("أو اختر بالحرف:")
+        st.radio("الحروف", alphabet, horizontal=True)
+        
+        if search:
+            st.success(f"نتائج البحث عن: {search}")
+            # مثال لبيانات
+            st.markdown("""
+            **تفاصيل الدواء:**
+            * **المادة الفعالة:** Paracetamol
+            * **التركيز:** 500mg
+            * **دواعي الاستعمال:** خافض للحرارة ومسكن للآلام.
+            * **موانع الاستعمال:** خلل وظائف الكبد.
+            """)
 
-# قاعدة بيانات تجريبية (موسعة)
-med_db = [
-    {"name": "Augmentin 1g", "active": "Amoxicillin + Clavulanic Acid", "company": "GSK", "price": "100 EGP", "use": "Antibiotic"},
-    {"name": "Panadol Advance", "active": "Paracetamol", "company": "Glaxo", "price": "30 EGP", "use": "Analgesic"},
-    {"name": "Concor 5mg", "active": "Bisoprolol", "company": "Merck", "price": "50 EGP", "use": "Hypertension"},
-    {"name": "Cataflam 50mg", "active": "Diclofenac Potassium", "company": "Novartis", "price": "65 EGP", "use": "Anti-inflammatory"},
-    {"name": "Controloc 40mg", "active": "Pantoprazole", "company": "Takeda", "price": "95 EGP", "use": "Gastritis"}
-]
-df_meds = pd.DataFrame(med_db)
+    # --- 5. صفحة المختبر (خانات التحاليل) ---
+    elif st.session_state.page == 'lab':
+        st.header("🔬 المختبر الطبي الرقمي")
+        analysis_type = st.selectbox("اختر نوع التحليل:", ["CBC (صورة دم كاملة)", "وظائف كبد", "وظائف كلى"])
+        
+        if analysis_type == "CBC (صورة دم كاملة)":
+            st.write("أدخل القيم كما هي في ورقة التحليل:")
+            c1, c2, c3 = st.columns(3)
+            with c1: hb = st.number_input("Hemoglobin (Hb)", 0.0, 20.0)
+            with c2: wbc = st.number_input("WBCs", 0, 50000)
+            with c3: plt = st.number_input("Platelets", 0, 1000000)
+            
+            if st.button("تحليل النتائج"):
+                if hb < 12: st.error("توجد أنيميا (فقر دم).")
+                else: st.success("نسبة الهيموجلوبين طبيعية.")
 
-drug_input = st.text_input("🔍 ابحث عن الدواء (الاسم، المادة، الشركة، أو الاستخدام):")
-
-if drug_input:
-    results = df_meds[df_meds.apply(lambda row: drug_input.lower() in row.astype(str).str.lower().values, axis=1)]
-    if not results.empty:
-        for _, row in results.iterrows():
-            st.markdown(f"""
-            <div class="card">
-                <span class="price-tag">{row['price']}</span>
-                <h2 style="color: #1a5276; margin-top: 0;">{row['name']}</h2>
-                <p style="margin: 5px 0;"><b>🧪 المادة الفعالة:</b> {row['active']}</p>
-                <p style="margin: 5px 0;"><b>🏢 الشركة:</b> {row['company']}</p>
-                <p style="margin: 5px 0;"><b>📝 الاستخدام:</b> {row['use']}</p>
-                <hr>
-                <p style="color: #008080; font-size: 0.9em;"><b>🔄 البدائل المتاحة:</b> تظهر هنا الأدوية التي تحتوي على {row['active']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.error("لم يتم العثور على نتائج.")
-
-# --- 6. قسم التحاليل الطبية (بدون أسعار - علمي) ---
-st.divider()
-st.header("🔬 المختبر الطبي الذكي")
-lab_input = st.text_input("🔍 ابحث عن التحليل والتعليمات:")
-
-labs = [
-    {"n": "صورة دم (CBC)", "f": "خلايا الدم والأنيميا", "t": "لا يشترط الصيام"},
-    {"n": "سكر تراكمي (HbA1c)", "f": "معدل السكر في 3 شهور", "t": "لا يشترط الصيام"},
-    {"n": "وظائف كبد (ALT/AST)", "f": "سلامة إنزيمات الكبد", "t": "يفضل الصيام 6 ساعات"}
-]
-
-if lab_input:
-    res_l = [l for l in labs if lab_input.lower() in l['n'].lower()]
-    for l in res_l:
-        st.markdown(f"""
-        <div class="card" style="border-right-color: #008080;">
-            <h3 style="color: #004d40;">{l['n']}</h3>
-            <p><b>🎯 الهدف:</b> {l['f']}</p>
-            <div style="background-color:
+    # --- 6. المساعد الذكي ---
+    elif st.session_state.page == 'ai':
+        st.header("🤖 المساعد الطبي الذكي (Gemini AI)")
+        user_q = st.text_input("اسأل المساعد عن أي معلومة طبية:")
+        if st.button("إرسال"):
+            st.write("💬 المساعد: جاري تحليل سؤالك بناءً على الكتب الطبية المصرية...")
