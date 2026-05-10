@@ -1,224 +1,210 @@
 import streamlit as st
-import json
 import hashlib
 from datetime import datetime
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
 from enum import Enum
-import re
 
 # =============================================================================
-# الإعدادات والثوابت - CONFIGURATION & CONSTANTS
+# إعدادات الصفحة والستايل الاحترافي (RTL)
 # =============================================================================
 
 st.set_page_config(
-    page_title="نظام دعم القرار السريري الذكي",
+    page_title="نظام دعم القرار الطبي الذكي",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# تنسيق CSS لدعم اللغة العربية والاتجاه من اليمين لليسار (RTL)
+# تصميم واجهة المستخدم (CSS)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
     
+    /* جعل الموقع بالكامل يدعم العربية */
     html, body, [data-testid="stSidebar"], .main {
         direction: rtl;
         text-align: right;
         font-family: 'Cairo', sans-serif;
     }
+    
+    /* الهيدر الرئيسي */
     .main-header {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1e3a5f;
+        background: linear-gradient(90deg, #1e3a5f 0%, #2e86ab 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
         text-align: center;
-        padding: 1rem 0;
-        border-bottom: 3px solid #2e86ab;
         margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
+    
+    /* كروت النتائج */
+    .result-card {
+        background: #ffffff;
+        border-right: 5px solid #2e86ab;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin: 1rem 0;
+    }
+    
+    /* تنبيهات الطوارئ */
     .emergency-banner {
-        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        background-color: #ff4b4b;
         color: white;
         padding: 1.5rem;
         border-radius: 12px;
         text-align: center;
-        font-size: 1.3rem;
-        font-weight: 600;
-        margin: 1rem 0;
-        box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+        font-size: 1.2rem;
+        font-weight: bold;
         animation: pulse 2s infinite;
     }
+    
     @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.02); }
+        0% { opacity: 1; }
+        50% { opacity: 0.8; }
+        100% { opacity: 1; }
     }
-    .warning-banner {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 8px;
-        text-align: center;
-        font-weight: 500;
-        margin: 1rem 0;
-    }
-    .info-card {
-        background: #f8fafc;
-        border-right: 4px solid #2e86ab;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-    }
-    .result-card {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    /* تعديل اتجاه صناديق الاختيار والقوائم */
-    .stCheckbox, .stMarkdown, .stSelectbox {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    .disclaimer {
-        background: #f1f5f9;
-        border: 1px dashed #94a3b8;
-        padding: 1rem;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        color: #475569;
-        margin-top: 2rem;
+    
+    /* تنسيق القوائم الجانبية */
+    [data-testid="stSidebar"] {
+        background-color: #f8fafc;
+        border-left: 1px solid #e2e8f0;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# نماذج البيانات - DATA MODELS
+# المنطق البرمجي وقاعدة البيانات (مترجمة ومحدثة)
 # =============================================================================
 
 class TriageLevel(Enum):
-    EMERGENCY = "حالة طوارئ"      # فوراً
-    URGENT = "حالة عاجلة"         # نفس اليوم
-    PROMPT = "حالة سريعة"         # 24-48 ساعة
-    ROUTINE = "حالة روتينية"      # موعد عادي
-    SELF_CARE = "رعاية ذاتية"      # منزلية
-
+    EMERGENCY = "🚨 طوارئ فورية"
+    URGENT = "⚠️ عاجل (خلال ساعات)"
+    PROMPT = "📋 موعد قريب (24-48 ساعة)"
+    ROUTINE = "🏥 مراجعة روتينية"
+    SELF_CARE = "🏠 رعاية منزلية"
 
 @dataclass
 class Symptom:
     name: str
-    snomed_ct_id: str
-    body_system: str
     is_red_flag: bool = False
-    severity_weight: float = 1.0
+    weight: float = 1.0
 
-# =============================================================================
-# قاعدة المعرفة (مترجمة للعربية)
-# =============================================================================
-
-# أعراض الخط الأحمر (الطوارئ)
-RED_FLAG_SYMPTOMS = {
-    "chest_pain": Symptom("ألم في الصدر", "29857009", "الجهاز الدوري", True, 10.0),
-    "difficulty_breathing": Symptom("صعوبة شديدة في التنفس", "267036007", "الجهاز التنفسي", True, 10.0),
-    "unconscious": Symptom("فقدان الوعي", "419284004", "الجهاز العصبي", True, 10.0),
-    "severe_bleeding": Symptom("نزيف حاد", "131148009", "الدم", True, 10.0),
-    "stroke_symptoms": Symptom("أعراض سكتة دماغية (شلل وجه/ضعف ذراع)", "230690007", "الجهاز العصبي", True, 10.0),
-    "severe_abdominal_pain": Symptom("ألم حاد في البطن", "21522001", "الجهاز الهضمي", True, 9.0),
-    "suicidal_ideation": Symptom("أفكار انتحارية", "6471006", "الصحة النفسية", True, 10.0),
-}
-
-# قاعدة الأعراض الشائعة
-COMMON_SYMPTOMS = {
-    **RED_FLAG_SYMPTOMS,
-    "fever": Symptom("حمى (سخونية)", "386661006", "عام", False, 3.0),
-    "cough": Symptom("سعال (كحة)", "49727002", "الجهاز التنفسي", False, 2.0),
-    "fatigue": Symptom("إرهاق وتعب", "84229001", "عام", False, 1.5),
-    "headache": Symptom("صداع", "25064002", "الجهاز العصبي", False, 2.5),
-    "nausea": Symptom("غثيان", "422587007", "الجهاز الهضمي", False, 2.0),
-    "vomiting": Symptom("قيء", "422400008", "الجهاز الهضمي", False, 2.5),
-    "dizziness": Symptom("دوخة", "404640003", "الجهاز العصبي", False, 2.5),
-}
-
-# تصنيفات أجهزة الجسم للعرض
-BODY_SYSTEMS = {
-    "الجهاز الدوري والتنفسي": ["chest_pain", "difficulty_breathing", "cough"],
-    "الجهاز العصبي": ["unconscious", "stroke_symptoms", "headache", "dizziness"],
-    "الجهاز الهضمي": ["severe_abdominal_pain", "nausea", "vomiting"],
-    "أعراض عامة ونفسية": ["fever", "fatigue", "suicidal_ideation"],
+# قاعدة بيانات الأعراض (لحل مشكلة التكرار)
+SYMPTOMS_DB = {
+    "أعراض الجهاز الدوري": {
+        "chest_pain": Symptom("ألم في الصدر", True, 10.0),
+        "palpitations": Symptom("خفقان سريع للقلب", False, 4.0),
+    },
+    "أعراض الجهاز التنفسي": {
+        "diff_breathing": Symptom("صعوبة شديدة في التنفس", True, 10.0),
+        "short_breath": Symptom("ضيق تنفس بسيط", False, 5.0),
+        "cough": Symptom("سعال مستمر", False, 2.0),
+    },
+    "أعراض الجهاز العصبي": {
+        "unconscious": Symptom("فقدان أو اضطراب الوعي", True, 10.0),
+        "stroke_symp": Symptom("ثقل في الكلام أو ضعف في الأطراف", True, 10.0),
+        "headache": Symptom("صداع حاد ومفاجئ", False, 3.0),
+    },
+    "أعراض عامة": {
+        "fever": Symptom("حمى (ارتفاع حرارة)", False, 3.0),
+        "fatigue": Symptom("إرهاق شديد", False, 1.5),
+        "bleeding": Symptom("نزيف حاد غير متحكم به", True, 10.0),
+    }
 }
 
 # =============================================================================
-# واجهة المستخدم الرئيسية
+# واجهة التطبيق
 # =============================================================================
 
 def main():
-    # الهيدر
-    st.markdown('<div class="main-header">🏥 نظام الذكاء الاصطناعي لدعم القرار الطبي</div>', unsafe_allow_html=True)
-    st.markdown('<div style="text-align: center; color: #64748b; margin-bottom: 2rem;">نموذج بحث دكتوراه • الإصدار العربي</div>', unsafe_allow_html=True)
+    # 1. الهيدر الرئيسي (أول ما يراه المستخدم)
+    st.markdown("""
+        <div class="main-header">
+            <h1>🏥 نظام المساعد الطبي الذكي</h1>
+            <p>مشروع دكتوراه: تحليل الأعراض ودعم القرار الطبي باستخدام الذكاء الاصطناعي</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # التبويبات
-    tab1, tab2 = st.tabs(["🔍 فحص الأعراض", "💊 الأدوية والتفاعلات"])
+    # 2. القائمة الجانبية
+    with st.sidebar:
+        st.header("📊 إحصائيات الجلسة")
+        st.info(f"معرف الجلسة: {hashlib.md5(str(datetime.now()).encode()).hexdigest()[:8]}")
+        st.write("---")
+        st.subheader("☎️ أرقام الطوارئ (مصر)")
+        st.error("الإسعاف: 123")
+        st.warning("النجدة: 122")
+
+    # 3. التبويبات الرئيسية
+    tab1, tab2, tab3 = st.tabs(["🔍 فحص الأعراض", "💊 الاستعلام الدوائي", "📜 عن الدراسة"])
 
     with tab1:
-        st.header("فحص الأعراض")
+        st.subheader("خطوة 1: إدخال البيانات الأساسية")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            age = st.number_input("العمر", 1, 120, 30)
+        with c2:
+            sex = st.selectbox("الجنس", ["ذكر", "أنثى"])
+        with c3:
+            duration = st.selectbox("مدة الأعراض", ["دقائق/ساعات", "أيام", "أسبوع فأكثر"])
+
+        st.write("---")
+        st.subheader("خطوة 2: تحديد الأعراض")
         
-        with st.form("symptom_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                age = st.number_input("العمر", 0, 120, 30)
-                sex = st.selectbox("الجنس", ["ذكر", "أنثى"])
-            with col2:
-                duration = st.selectbox("مدة الأعراض", ["دقائق (مفاجئ)", "ساعات", "أيام", "أسابيع"])
-                severity = st.slider("شدة الألم (1 هادئ - 10 حاد)", 1, 10, 5)
+        selected_keys = []
+        cols = st.columns(2)
+        for i, (category, symptoms) in enumerate(SYMPTOMS_DB.items()):
+            with cols[i % 2]:
+                st.markdown(f"**{category}**")
+                for key, data in symptoms.items():
+                    if st.checkbox(data.name, key=key):
+                        selected_keys.append(key)
 
-            st.write("### اختر الأعراض التي تشعر بها:")
-            cols = st.columns(2)
-            selected_symptoms = []
-            
-            for i, (system, symptoms) in enumerate(BODY_SYSTEMS.items()):
-                with cols[i % 2]:
-                    st.markdown(f"**{system}**")
-                    for s_key in symptoms:
-                        s_data = COMMON_SYMPTOMS[s_key]
-                        label = f"🚨 {s_data.name}" if s_data.is_red_flag else s_data.name
-                        if st.checkbox(label, key=s_key):
-                            selected_symptoms.append(s_key)
+        st.write("---")
+        st.subheader("خطوة 3: وصف إضافي")
+        free_text = st.text_area("اشرح حالتك بكلماتك الخاصة:", placeholder="مثال: أشعر بثقل في الكتف الأيسر منذ ساعتين...")
 
-            free_text = st.text_area("اشرح حالتك بالتفصيل (اختياري):", placeholder="مثال: أشعر بضيق في التنفس مع تعرق بارد...")
-            
-            submitted = st.form_submit_button("تحليل الحالة الآن")
-
-        if submitted:
-            if not selected_symptoms:
-                st.warning("يرجى اختيار عرض واحد على الأقل.")
+        # زر التحليل (حل مشكلة Missing Submit Button)
+        if st.button("🔬 بدء التحليل السريري", use_container_width=True, type="primary"):
+            if not selected_keys and not free_text:
+                st.warning("يرجى اختيار عرض واحد على الأقل أو كتابة وصف للحالة.")
             else:
-                st.subheader("النتيجة المبدئية:")
-                # تحليل بسيط كمثال للبحث
-                has_red_flag = any(COMMON_SYMPTOMS[s].is_red_flag for s in selected_symptoms)
+                st.write("### 📋 نتيجة التقييم")
+                
+                # منطق الترياج البسيط
+                has_red_flag = any(any(s.is_red_flag for k, s in cat.items() if k in selected_keys) 
+                                   for cat in SYMPTOMS_DB.values())
                 
                 if has_red_flag:
                     st.markdown("""
-                    <div class="emergency-banner">
-                        🚨 تنبيه حالة طارئة 🚨<br>
-                        يرجى التوجه لأقرب مستشفى أو الاتصال بالإسعاف فوراً.
-                    </div>
+                        <div class="emergency-banner">
+                            🚨 تنبيه: حالة طارئة خطيرة!<br>
+                            الأعراض المختارة تشير لضرورة التدخل الطبي الفوري. اتصل بالاسعاف الآن.
+                        </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.success("تم تحليل الأعراض. ننصح بمراجعة الطبيب في أقرب موعد روتيني.")
+                    st.info("بناءً على الأعراض المدخلة، ننصح بحجز موعد مع طبيب مختص في أقرب وقت.")
 
     with tab2:
-        st.header("الاستعلام عن الأدوية")
-        st.info("هذا القسم مخصص للتحقق من تداخلات الأدوية (قيد التطوير في البحث).")
+        st.header("💊 قاعدة بيانات الأدوية")
+        st.write("هذا القسم مخصص للتحقق من التداخلات الدوائية (تحت التحديث برمجياً).")
 
-    # التذييل والقانون
+    with tab3:
+        st.markdown(f"""
+            ### عن مشروع الدكتوراه
+            هذا النظام يهدف إلى تقليل الضغط على غرف الطوارئ من خلال تصنيف الحالات طبياً (Triage) بدقة.
+            * **الباحث:** دكتوراه في العلوم الطبية / المعلوماتية الصحية.
+            * **الإصدار:** 1.5 (عربي بالكامل).
+        """)
+
+    # 4. إخلاء المسؤولية الثابت
+    st.markdown("---")
     st.markdown("""
-    <div class="disclaimer">
-        <strong>⚠️ إخلاء مسؤولية طبي</strong><br>
-        هذا النظام هو <strong>نموذج بحثي لرسالة دكتوراه</strong> فقط. 
-        لا يمكن استخدامه كبديل للتشخيص الطبي المهني. في حالات الطوارئ، اتصل دائماً بالإسعاف (123 في مصر).
-    </div>
+        <div style="background-color: #fff3cd; padding: 10px; border-radius: 5px; font-size: 0.8rem; color: #856404; text-align: center;">
+            ⚠️ <strong>تنبيه طبي:</strong> هذا نموذج بحثي وليس تشخيصاً نهائياً. دائماً استشر الطبيب في الحالات الصحية.
+        </div>
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
